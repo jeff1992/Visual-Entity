@@ -12,7 +12,9 @@
               @click="fieldSelect(pathItem, index)"
             >
               <span class="_field-name">{{index}}</span>
-              <span class="_field-value">{{pathItem.type.itemType.display(pathItem.value[index])}}</span>
+              <span class="_field-value"><!--{{pathItem.type.itemType.display(pathItem.value[index])}}-->
+                <component :is="pathItem.type.itemType.component" v-model="pathItem.value[index]" :type="pathItem.type.itemType" />
+              </span>
             </div>
             <div class="_field-add" @click="fieldAdd(pathItem)">+</div>
           </template>
@@ -24,7 +26,14 @@
               @click="fieldSelect(pathItem, field)"
             >
               <span class="_field-name">{{field.name}}</span>
-              <span class="_field-value">{{field.type.display(pathItem.value[field.name])}}</span>
+              <span class="_field-value"><!--{{field.type.display(pathItem.value[field.name])}}-->
+                <component v-if="field.type" :is="field.type.component" v-model="pathItem.value[field.name]" :type="field.type" />
+              </span>
+              <!--
+              <span class="_field-help" v-if="field.type && field.type.fields && field.type.fields.length">
+                <a href="javascript:;">选择</a>
+                <a href="javascript:;">新建</a>
+              </span>-->
             </div>
           </template>
 
@@ -46,7 +55,7 @@
                   :key="rowIndex"
                 >
                   <td v-for="(field, fieldIndex) in pathItem.type.itemType.fields" :key="fieldIndex">
-                    {{field.type.display(row[field.name])}}
+                    <component :is="field.component || field.type.component" v-model="row[field.name]" />
                   </td>
                 </tr>
               </tbody>
@@ -59,132 +68,29 @@
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld'
 // import Vue from 'vue'
-
-const TypeField = { name: 'Field' }
-const Type = {}
-const TypeString = {}
-const TypeNumber = {}
-const TypeFunction = {}
-const TypeBoolean = {}
-
-const List = function (type) {
-  const instance = Type.create()
-  instance.name = `List<${type.name}>`
-  instance.isArray = true
-  instance.itemType = type
-  instance.display = function (instance) {
-    return `(×${instance.length})`
-  }
-  return instance
-}
-
-const create = function () {
-  if (this.isArray) {
-    return []
-  } else {
-    const instance = {
-      _type: this
-    }
-    if (this.fields) {
-      this.fields.forEach(f => {
-        instance[f.name] = (typeof f.default === 'function' && f.type !== TypeFunction) ? f.default() : f.default
-      })
-    }
-    return instance
-  }
-}
-
-Type._type = Type
-Type.name = 'Type'
-Type.isArray = false
-Type.create = create
-Type.display = function (instance) {
-  return `Type:${instance.name}`
-}
-Type.fields = [{
-  _type: TypeField,
-  type: TypeString,
-  name: 'name',
-  default: 'typeName'
-}, {
-  _type: TypeField,
-  type: TypeBoolean,
-  name: 'isArray',
-  default: false
-}, {
-  _type: TypeField,
-  type: List(TypeField),
-  name: 'fields',
-  default: () => []
-}, {
-  _type: TypeField,
-  name: 'display',
-  type: TypeFunction,
-  default: function (instance) {
-    const t = typeof instance
-    if (t === 'function') {
-      return 'function'
-    }
-    if (t === 'object') {
-      return 'object'
-    }
-    return instance
-  }
-}, {
-  _type: TypeField,
-  name: 'create',
-  type: TypeFunction,
-  default: create
-}]
-
-Object.assign(TypeField, Type.create())
-TypeField.name = 'Field'
-TypeField.fields.push({
-  _type: TypeField,
-  name: 'name',
-  type: TypeString,
-  default: 'fieldName'
-})
-TypeField.fields.push({
-  _type: TypeField,
-  name: 'type',
-  type: Type,
-  default: TypeString
-})
-TypeField.display = function (instance) {
-  return `Field: ${instance.name}`
-}
-
-Object.assign(TypeBoolean, Type.create())
-TypeBoolean.name = 'Boolean'
-
-Object.assign(TypeNumber, Type.create())
-TypeNumber.name = 'Number'
-
-Object.assign(TypeString, Type.create())
-TypeString.name = 'String'  
-
-Object.assign(TypeFunction, Type.create())
-TypeFunction.name = 'Function'
+import {
+  Type,
+  TypeField,
+  TypeList
+} from './seed'
+import objects from './db'
 
 const TypeContainer = Type.create()
 TypeContainer.name = 'Container'
 TypeContainer.fields.push({
   _type: TypeField,
   name: 'types',
-  type: List(Type),
-  default: [Type, TypeField, TypeBoolean, TypeString, TypeNumber, TypeFunction, TypeContainer]
+  type: TypeList(Type),
+  default: [TypeContainer]
+  // default: [Type, TypeField, TypeBoolean, TypeString, TypeNumber, TypeFunction, TypeContainer]
 })
 
 const container = TypeContainer.create()
 
 export default {
   name: 'App',
-  components: {
-    HelloWorld
-  },
+  components: {},
   data () {
     return {
       path: [{
@@ -200,6 +106,7 @@ export default {
         const instance = pathItem.type.itemType.create()
         instance.name = 'TypeName'
         pathItem.value.push(instance)
+        objects.push(instance)
       }
     },
     fieldSelect (pathItem, field) {
@@ -274,11 +181,15 @@ h5 {
   border-top: solid 1px #F0F0F0;
   padding: 10px;
   font-size: 13px;
+  display: flex;
 }
 ._field-name {
   display: inline-block;
-  width: 50px;
+  width: 80px;
   font-weight: bold;
+}
+._field-value {
+  flex: 1;
 }
 ._field.selected {
   background-color: #F4F4F4;
